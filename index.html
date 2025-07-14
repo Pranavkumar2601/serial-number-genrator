@@ -4,14 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Serial Number Generator</title>
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts: Inter -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- SheetJS for Excel export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <!-- jsBarcode for CODE128 barcodes -->
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 
   <style>
@@ -45,33 +41,14 @@
         Generate, download & print your product serials.
       </p>
 
-      <!-- Form -->
       <form id="generatorForm" class="space-y-6">
         <div>
-          <label for="category" class="block text-sm font-medium text-gray-700 mb-1">
-            Category (optional)
-          </label>
-          <input type="text" id="category" name="category"
-                 placeholder="E.g. Electronics"
-                 class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"/>
-        </div>
-
-        <div>
-          <label for="productName" class="block text-sm font-medium text-gray-700 mb-1">
-            Product Name (optional)
-          </label>
-          <input type="text" id="productName" name="productName"
-                 placeholder="E.g. Speaker"
-                 class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"/>
-        </div>
-
-        <div>
           <label for="modelName" class="block text-sm font-medium text-gray-700 mb-1">
-            Model Name<span class="text-red-500">*</span>
+            Product / Model Name<span class="text-red-500">*</span>
           </label>
           <input type="text" id="modelName" name="modelName" required maxlength="10"
                  pattern="[A-Z0-9]+"
-                 placeholder="E.g. AV2605"
+                 placeholder="E.g. AV2605 (used for filename)"
                  class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"/>
           <small class="block mt-1 text-xs text-gray-500">
             Only uppercase letters (A–Z) and digits (0–9), no spaces/symbols.
@@ -80,12 +57,12 @@
 
         <div>
           <label for="length" class="block text-sm font-medium text-gray-700 mb-1">
-            Total Length (including Model Name)
+            Total Length (including Prefix)
           </label>
           <input type="number" id="length" name="length" required min="5" max="30" value="10"
                  class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"/>
           <small class="block mt-1 text-xs text-gray-500">
-            Must be greater than Model Name length.
+            Must be greater than Product/Model Name length.
           </small>
         </div>
 
@@ -112,8 +89,7 @@
   (function() {
     const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let generatedSerials = [];
-    let currentCategory = '';
-    let currentProductName = '';
+    let currentModelName = '';
 
     function randomString(len) {
       return Array.from({ length: len }, () =>
@@ -121,31 +97,23 @@
       ).join('');
     }
     function showAlert(msg) { alert(msg); }
-    function getFilename(defaultName) {
-      const name = prompt('Enter filename:', defaultName);
-      return name ? name.trim() : null;
-    }
-
+    
     function downloadExcel() {
       if (!generatedSerials.length) {
         showAlert('Generate serials first.');
         return;
       }
       const wb = XLSX.utils.book_new();
+      // Create data array with only S.No and Serial Number
       const ws_data = [
-        ['S.No', 'Category', 'Product Name', 'Serial'],
-        ...generatedSerials.map((s, i) => [
-          i + 1,
-          currentCategory,
-          currentProductName,
-          s
-        ])
+        ['S.No', 'Serial Number'],
+        ...generatedSerials.map((s, i) => [i + 1, s])
       ];
       const ws = XLSX.utils.aoa_to_sheet(ws_data);
       XLSX.utils.book_append_sheet(wb, ws, 'Serials');
-      let fn = getFilename('serials.xlsx');
-      if (!fn) return;
-      if (!fn.toLowerCase().endsWith('.xlsx')) fn += '.xlsx';
+      
+      // Generate filename from model name
+      let fn = (currentModelName || 'serials') + '.xlsx';
       XLSX.writeFile(wb, fn);
     }
 
@@ -190,28 +158,27 @@
 
     document.getElementById('generatorForm').addEventListener('submit', function(e) {
       e.preventDefault();
-      currentCategory    = document.getElementById('category').value.trim();
-      currentProductName = document.getElementById('productName').value.trim();
-      let modelName      = document.getElementById('modelName').value
+      
+      currentModelName = document.getElementById('modelName').value
                               .trim().toUpperCase()
                               .replace(/[^A-Z0-9]/g, '');
       const totalLen     = parseInt(document.getElementById('length').value, 10);
       const quantity     = parseInt(document.getElementById('quantity').value, 10);
 
-      if (!modelName) {
-        showAlert('Model Name is required.');
+      if (!currentModelName) {
+        showAlert('Product / Model Name is required.');
         return;
       }
-      if (totalLen <= modelName.length) {
+      if (totalLen <= currentModelName.length) {
         showAlert('Total Length (' + totalLen +
-          ') must be greater than prefix length (' + modelName.length + ').');
+          ') must be greater than prefix length (' + currentModelName.length + ').');
         return;
       }
-      const randLen = totalLen - modelName.length;
+      const randLen = totalLen - currentModelName.length;
 
       const set = new Set();
       while (set.size < quantity) {
-        set.add(modelName + randomString(randLen));
+        set.add(currentModelName + randomString(randLen));
       }
       generatedSerials = Array.from(set);
 
