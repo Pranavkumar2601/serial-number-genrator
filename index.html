@@ -104,11 +104,11 @@
         return;
       }
       const wb = XLSX.utils.book_new();
-      // Create data array with only S.No and Serial Number
-      const ws_data = [
-        ['S.No', 'Serial Number'],
-        ...generatedSerials.map((s, i) => [i + 1, s])
-      ];
+      
+      // Create data array with only serial numbers, no header.
+      // Each serial is wrapped in an array to represent a row.
+      const ws_data = generatedSerials.map(s => [s]);
+      
       const ws = XLSX.utils.aoa_to_sheet(ws_data);
       XLSX.utils.book_append_sheet(wb, ws, 'Serials');
       
