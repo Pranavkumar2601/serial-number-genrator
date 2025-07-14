@@ -6,11 +6,13 @@
   <title>Serial Number Generator</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-
   <!-- Google Fonts: Inter -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- SheetJS for Excel export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- jsBarcode for CODE128 barcodes -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 
   <style>
     body { font-family: 'Inter', sans-serif; }
@@ -19,290 +21,226 @@
       border-color: #556B2F;
       box-shadow: 0 0 0 3px rgba(85, 107, 47, 0.2);
     }
+    @media print {
+      .no-print { display: none; }
+    }
   </style>
 </head>
 <body class="bg-gray-50 text-gray-800 flex items-center justify-center min-h-screen p-4">
 
   <main class="w-full max-w-lg">
     <div class="bg-white p-8 rounded-2xl shadow-lg">
-      <!-- Header -->
-      <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">Product Serial Number Generator</h1>
-      <p class="text-center text-gray-500 mb-8">Create unique serial numbers for your products.</p>
+      <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">Serial Number Generator</h1>
+      <p class="text-center text-gray-500 mb-6">
+        Generate, download & print your product serials.
+      </p>
 
       <!-- Form -->
       <form id="generatorForm" class="space-y-6">
-        <!-- Prefix Input -->
+        <!-- Category (for Excel record only) -->
         <div>
-          <label for="prefix" class="block text-sm font-medium text-gray-700 mb-1">
-            Prefix:(Model Name or Product Name)
+          <label for="category" class="block text-sm font-medium text-gray-700 mb-1">
+            Category (optional)
           </label>
-          <input
-            type="text"
-            id="prefix"
-            name="prefix"
-            required
-            maxlength="10"
-            pattern="[A-Z0-9]+"
-            placeholder="E.g. AV2605"
-            title="Only uppercase letters (A–Z) and digits (0–9)"
-            class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg transition duration-200"
-          />
+          <input type="text" id="category" name="category"
+                 placeholder="E.g. Electronics"
+                 class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"/>
+        </div>
+
+        <!-- Product Name (for Excel record only) -->
+        <div>
+          <label for="productName" class="block text-sm font-medium text-gray-700 mb-1">
+            Product Name (optional)
+          </label>
+          <input type="text" id="productName" name="productName"
+                 placeholder="E.g. Speaker"
+                 class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"/>
+        </div>
+
+        <!-- Model Name (prefix) -->
+        <div>
+          <label for="modelName" class="block text-sm font-medium text-gray-700 mb-1">
+            Model Name<span class="text-red-500">*</span>
+          </label>
+          <input type="text" id="modelName" name="modelName" required maxlength="10"
+                 pattern="[A-Z0-9]+"
+                 placeholder="E.g. AV2605"
+                 class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"/>
           <small class="block mt-1 text-xs text-gray-500">
-            Use uppercase letters or digits, max 10 chars. No spaces/symbols.
+            Only uppercase letters (A–Z) and digits (0–9), no spaces/symbols.
           </small>
         </div>
 
-        <!-- Length Input -->
+        <!-- Total Length -->
         <div>
           <label for="length" class="block text-sm font-medium text-gray-700 mb-1">
-            Serial Length/Size
+            Total Length (including Model Name)
           </label>
-          <input
-            type="number"
-            id="length"
-            name="length"
-            required
-            min="4"
-            max="20"
-            value="4"
-            class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg transition duration-200"
-          />
-          <small class="block mt-1 text-xs text-gray-500">Minimum 4, max 20.</small>
+          <input type="number" id="length" name="length" required min="5" max="30" value="10"
+                 class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"/>
+          <small class="block mt-1 text-xs text-gray-500">
+            Must be greater than Model Name length.
+          </small>
         </div>
 
-        <!-- Quantity Input -->
+        <!-- Quantity -->
         <div>
           <label for="quantity" class="block text-sm font-medium text-gray-700 mb-1">
             Quantity
           </label>
-          <input
-            type="number"
-            id="quantity"
-            name="quantity"
-            required
-            min="1"
-            max="1000"
-            value="2"
-            class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg transition duration-200"
-          />
-          <small class="block mt-1 text-xs text-gray-500">
-            How many serials to generate (max 1000).
-          </small>
+          <input type="number" id="quantity" name="quantity" required min="1" max="1000" value="10"
+                 class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"/>
+          <small class="block mt-1 text-xs text-gray-500">How many serials (max 1000).</small>
         </div>
 
-        <!-- Submit Button -->
-        <button
-          type="submit"
-          class="w-full py-3 px-4 bg-[#556B2F] hover:bg-[#4A5D2A] text-white font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#556B2F]"
-        >
+        <button type="submit"
+                class="w-full py-3 px-4 bg-[#556B2F] hover:bg-[#4A5D2A] text-white font-semibold rounded-lg shadow-md no-print">
           Generate Serials
         </button>
       </form>
-
-      <!-- Example Box -->
-      <div class="mt-8 text-center bg-green-50 border border-green-200 p-3 rounded-lg">
-        <p class="text-sm text-green-800">
-          <strong>Example:</strong>
-          <code class="bg-green-200 text-green-900 font-mono px-2 py-1 rounded">AV2605H7K2</code>
-        </p>
-      </div>
     </div>
 
-    <!-- Results Area -->
+    <!-- Results & Actions -->
     <div id="results" class="w-full max-w-lg mt-8"></div>
   </main>
 
   <script>
-    (function() {
-      const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-      let generatedSerials = []; // Store generated serials globally or pass them
+  (function() {
+    const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let generatedSerials = [];
+    let currentCategory = '';
+    let currentProductName = '';
 
-      function randomString(length) {
-        let result = '';
-        for (let i = 0; i < length; i++) {
-          result += charset[Math.floor(Math.random() * charset.length)];
-        }
-        return result;
+    function randomString(len) {
+      return Array.from({ length: len }, () =>
+        charset[Math.floor(Math.random() * charset.length)]
+      ).join('');
+    }
+    function showAlert(msg) { alert(msg); }
+    function getFilename(defaultName) {
+      const name = prompt('Enter filename:', defaultName);
+      return name ? name.trim() : null;
+    }
+
+    // Excel export: flat table with S.No, Category, Product Name, Serial
+    function downloadExcel() {
+      if (!generatedSerials.length) {
+        showAlert('Generate serials first.');
+        return;
       }
+      const wb = XLSX.utils.book_new();
 
-      // Function to show a custom modal (replaces alert/confirm)
-      function showCustomModal(message, type = 'alert', callback = null) {
-        const modalId = 'customModal';
-        let modal = document.getElementById(modalId);
-        if (!modal) {
-          modal = document.createElement('div');
-          modal.id = modalId;
-          modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 p-4';
-          modal.innerHTML = `
-            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
-              <p id="modalMessage" class="text-gray-800 mb-4 text-center"></p>
-              <div class="flex justify-center space-x-4">
-                <button id="modalConfirmBtn" class="bg-[#556B2F] hover:bg-[#4A5D2A] text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#556B2F]">OK</button>
-                <button id="modalCancelBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 hidden">Cancel</button>
-              </div>
-            </div>
-          `;
-          document.body.appendChild(modal);
-        }
+      // Prepare rows
+      const ws_data = [
+        ['S.No','Category','Product Name','Serial'],
+        ...generatedSerials.map((s, i) => [
+          i + 1,
+          currentCategory,
+          currentProductName,
+          s
+        ])
+      ];
 
-        document.getElementById('modalMessage').textContent = message;
-        const confirmBtn = document.getElementById('modalConfirmBtn');
-        const cancelBtn = document.getElementById('modalCancelBtn');
+      const ws = XLSX.utils.aoa_to_sheet(ws_data);
+      XLSX.utils.book_append_sheet(wb, ws, 'Serials');
 
-        confirmBtn.onclick = () => {
-          modal.classList.add('hidden');
-          if (callback) callback(true);
-        };
+      let fn = getFilename('serials.xlsx');
+      if (!fn) return;
+      if (!fn.toLowerCase().endsWith('.xlsx')) fn += '.xlsx';
+      XLSX.writeFile(wb, fn);
+    }
 
-        if (type === 'confirm') {
-          cancelBtn.classList.remove('hidden');
-          cancelBtn.onclick = () => {
-            modal.classList.add('hidden');
-            if (callback) callback(false);
-          };
-        } else {
-          cancelBtn.classList.add('hidden');
-        }
-        modal.classList.remove('hidden');
+    // Print barcodes view
+    function printBarcodes() {
+      if (!generatedSerials.length) {
+        showAlert('Generate serials first.');
+        return;
       }
-
-      // Function to show a custom input modal (replaces prompt)
-      function showInputModal(message, defaultValue, callback) {
-        const modalId = 'inputModal';
-        let modal = document.getElementById(modalId);
-        if (!modal) {
-          modal = document.createElement('div');
-          modal.id = modalId;
-          modal.className = 'fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50 p-4';
-          modal.innerHTML = `
-            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
-              <p id="inputModalMessage" class="text-gray-800 mb-4 text-center"></p>
-              <input type="text" id="inputModalField" class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg mb-4" />
-              <div class="flex justify-center space-x-4">
-                <button id="inputModalConfirmBtn" class="bg-[#556B2F] hover:bg-[#4A5D2A] text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#556B2F]">OK</button>
-                <button id="inputModalCancelBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">Cancel</button>
-              </div>
-            </div>
-          `;
-          document.body.appendChild(modal);
-        }
-
-        document.getElementById('inputModalMessage').textContent = message;
-        const inputField = document.getElementById('inputModalField');
-        inputField.value = defaultValue;
-
-        const confirmBtn = document.getElementById('inputModalConfirmBtn');
-        const cancelBtn = document.getElementById('inputModalCancelBtn');
-
-        confirmBtn.onclick = () => {
-          modal.classList.add('hidden');
-          callback(inputField.value);
-        };
-
-        cancelBtn.onclick = () => {
-          modal.classList.add('hidden');
-          callback(null); // User cancelled
-        };
-
-        modal.classList.remove('hidden');
-        inputField.focus(); // Focus on the input field
-      }
-
-      // Function to download serial numbers as a .txt file
-      function downloadSerials() {
-        if (generatedSerials.length === 0) {
-          showCustomModal('No serial numbers to download. Please generate some first.');
-          return;
-        }
-
-        showInputModal('Enter filename for the serial numbers:', 'serials.txt', (filename) => {
-          if (filename === null || filename.trim() === '') {
-            showCustomModal('Download cancelled or no filename provided.');
-            return;
-          }
-
-          // Ensure filename has .txt extension
-          if (!filename.toLowerCase().endsWith('.txt')) {
-            filename += '.txt';
-          }
-
-          const serialsText = generatedSerials.join('\n');
-          const blob = new Blob([serialsText], { type: 'text/plain;charset=utf-8' });
-
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob);
-          a.download = filename;
-          document.body.appendChild(a); // Append to body to make it clickable
-          a.click(); // Programmatically click the link
-          document.body.removeChild(a); // Clean up the element
-          URL.revokeObjectURL(a.href); // Release the object URL
+      const w = window.open('', '_blank', 'width=800,height=600');
+      w.document.write(`
+        <html><head><title>Print Serials</title>
+        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
+        <style>
+          body { font-family: monospace; padding:20px; }
+          .label { display:inline-block; margin:10px; text-align:center; }
+          svg { display:block; margin: 0 auto; }
+        </style>
+        </head><body>
+      `);
+      generatedSerials.forEach((s,i) => {
+        w.document.write(`
+          <div class="label">
+            <svg id="bc${i}"></svg>
+            <div>${s}</div>
+          </div>
+        `);
+      });
+      w.document.write('</body></html>');
+      w.document.close();
+      w.onload = () => {
+        generatedSerials.forEach((s,i) => {
+          w.JsBarcode(w.document.getElementById(`bc${i}`), s, {
+            format: 'CODE128', width:2, height:50, displayValue: false
+          });
         });
+        w.focus();
+        w.print();
+      };
+    }
+
+    document.getElementById('generatorForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      // 1) Fetch inputs
+      currentCategory    = document.getElementById('category').value.trim();
+      currentProductName = document.getElementById('productName').value.trim();
+      let modelName      = document.getElementById('modelName').value
+                              .trim().toUpperCase()
+                              .replace(/[^A-Z0-9]/g,'');
+      const totalLen     = parseInt(document.getElementById('length').value, 10);
+      const quantity     = parseInt(document.getElementById('quantity').value, 10);
+
+      if (!modelName) {
+        showAlert('Model Name is required.');
+        return;
       }
+      if (totalLen <= modelName.length) {
+        showAlert(`Total Length (${totalLen}) must be greater than prefix length (${modelName.length}).`);
+        return;
+      }
+      const randLen = totalLen - modelName.length;
 
-      document.getElementById('generatorForm').addEventListener('submit', function(e) {
-        e.preventDefault();
+      // 2) Generate unique serials
+      const set = new Set();
+      while (set.size < quantity) {
+        set.add(modelName + randomString(randLen));
+      }
+      generatedSerials = Array.from(set);
 
-        const prefixInput = document.getElementById('prefix');
-        let prefix = prefixInput.value.trim().toUpperCase();
-        prefixInput.value = prefix;
-
-        const length = parseInt(document.getElementById('length').value, 10);
-        const quantity = parseInt(document.getElementById('quantity').value, 10);
-
-        // Validate prefix
-        if (!/^[A-Z0-9]+$/.test(prefix)) {
-          showCustomModal('Prefix can only contain uppercase letters (A-Z) and digits (0-9).');
-          return;
-        }
-
-        // Generate unique serials
-        const serials = new Set();
-        const maxAttempts = quantity * 10; // Max attempts to find unique serials
-        let attempts = 0;
-        while (serials.size < quantity && attempts < maxAttempts) {
-          serials.add(prefix + randomString(length));
-          attempts++;
-        }
-
-        // Convert Set to Array for consistent iteration and storage
-        generatedSerials = Array.from(serials);
-
-        // Check for digit-count warning (logic seems inverted, assuming it should warn if digit count is LOW)
-        // Re-evaluating the original logic: "return digitCount < 4;" suggests it warns if digits are *less* than 4.
-        // The original HTML had "Good to go." if warns was true, which is confusing.
-        // Assuming the intent is to show a warning if *any* serial has less than 4 digits in its random part.
-        const hasLowDigitWarning = generatedSerials.some(s => {
-          const randPart = s.slice(prefix.length);
-          const digitCount = (randPart.match(/\d/g) || []).length;
-          return digitCount < 4;
-        });
-
-        // Render results
-        const resultsDiv = document.getElementById('results');
-        resultsDiv.innerHTML = `
-          <div class="bg-white p-6 rounded-2xl shadow-lg">
-            <h2 class="text-xl font-bold text-gray-800 mb-3">Generated Serials:</h2>
-            ${hasLowDigitWarning
-              ? `<p class="text-sm text-yellow-600 mb-4">Warning: Some serials might have fewer than 4 digits in their random part. Consider increasing length for better distribution.</p>`
-              : `<p class="text-sm text-green-600 mb-4">Serials generated successfully.</p>`
-            }
-            <ul class="space-y-3 max-h-64 overflow-y-auto border border-gray-200 p-2 rounded-lg">
-              ${generatedSerials.map(s => `
-                <li class="font-mono text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                  ${s}
-                </li>
-              `).join('')}
-            </ul>
-            <button id="downloadBtn" class="mt-6 w-full py-3 px-4 bg-lime-700 hover:bg-lime-800 text-white font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-lime-700">
-              Download Serials (.txt)
+      // 3) Render results
+      const res = document.getElementById('results');
+      res.innerHTML = `
+        <div class="bg-white p-6 rounded-2xl shadow-lg">
+          <h2 class="text-xl font-bold text-gray-800 mb-3">Generated Serials:</h2>
+          <ul class="space-y-2 max-h-64 overflow-y-auto border border-gray-200 p-2 rounded-lg">
+            ${generatedSerials.map(s => `<li class="font-mono">${s}</li>`).join('')}
+          </ul>
+          <div class="mt-6 flex gap-4 no-print">
+            <button id="downloadExcelBtn"
+                    class="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+              Download Excel
+            </button>
+            <button id="printBarcodesBtn"
+                    class="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg">
+              Print Barcodes
             </button>
           </div>
-        `;
-
-        // Attach event listener to the newly created download button
-        document.getElementById('downloadBtn').addEventListener('click', downloadSerials);
-      });
-    })();
+        </div>
+      `;
+      document.getElementById('downloadExcelBtn').onclick = downloadExcel;
+      document.getElementById('printBarcodesBtn').onclick = printBarcodes;
+    });
+  })();
   </script>
 </body>
 </html>
