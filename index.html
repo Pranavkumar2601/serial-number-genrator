@@ -24,6 +24,16 @@
     @media print {
       .no-print { display: none; }
     }
+    .label { 
+      display: inline-block; 
+      margin: 20px; 
+      text-align: center; 
+      width: 200px; 
+    }
+    .label svg {
+      width: 200px; 
+      height: 100px; 
+    }
   </style>
 </head>
 <body class="bg-gray-50 text-gray-800 flex items-center justify-center min-h-screen p-4">
@@ -37,7 +47,6 @@
 
       <!-- Form -->
       <form id="generatorForm" class="space-y-6">
-        <!-- Category (for Excel record only) -->
         <div>
           <label for="category" class="block text-sm font-medium text-gray-700 mb-1">
             Category (optional)
@@ -47,7 +56,6 @@
                  class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"/>
         </div>
 
-        <!-- Product Name (for Excel record only) -->
         <div>
           <label for="productName" class="block text-sm font-medium text-gray-700 mb-1">
             Product Name (optional)
@@ -57,7 +65,6 @@
                  class="form-input w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"/>
         </div>
 
-        <!-- Model Name (prefix) -->
         <div>
           <label for="modelName" class="block text-sm font-medium text-gray-700 mb-1">
             Model Name<span class="text-red-500">*</span>
@@ -71,7 +78,6 @@
           </small>
         </div>
 
-        <!-- Total Length -->
         <div>
           <label for="length" class="block text-sm font-medium text-gray-700 mb-1">
             Total Length (including Model Name)
@@ -83,7 +89,6 @@
           </small>
         </div>
 
-        <!-- Quantity -->
         <div>
           <label for="quantity" class="block text-sm font-medium text-gray-700 mb-1">
             Quantity
@@ -100,7 +105,6 @@
       </form>
     </div>
 
-    <!-- Results & Actions -->
     <div id="results" class="w-full max-w-lg mt-8"></div>
   </main>
 
@@ -122,17 +126,14 @@
       return name ? name.trim() : null;
     }
 
-    // Excel export: flat table with S.No, Category, Product Name, Serial
     function downloadExcel() {
       if (!generatedSerials.length) {
         showAlert('Generate serials first.');
         return;
       }
       const wb = XLSX.utils.book_new();
-
-      // Prepare rows
       const ws_data = [
-        ['S.No','Category','Product Name','Serial'],
+        ['S.No', 'Category', 'Product Name', 'Serial'],
         ...generatedSerials.map((s, i) => [
           i + 1,
           currentCategory,
@@ -140,48 +141,47 @@
           s
         ])
       ];
-
       const ws = XLSX.utils.aoa_to_sheet(ws_data);
       XLSX.utils.book_append_sheet(wb, ws, 'Serials');
-
       let fn = getFilename('serials.xlsx');
       if (!fn) return;
       if (!fn.toLowerCase().endsWith('.xlsx')) fn += '.xlsx';
       XLSX.writeFile(wb, fn);
     }
 
-    // Print barcodes view
     function printBarcodes() {
       if (!generatedSerials.length) {
         showAlert('Generate serials first.');
         return;
       }
-      const w = window.open('', '_blank', 'width=800,height=600');
+      const w = window.open('', '_blank', 'width=900,height=700');
       w.document.write(`
         <html><head><title>Print Serials</title>
         <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
         <style>
           body { font-family: monospace; padding:20px; }
-          .label { display:inline-block; margin:10px; text-align:center; }
-          svg { display:block; margin: 0 auto; }
+          .label { display:inline-block; margin:20px; text-align:center; width:200px; }
+          .label svg { width:200px; height:100px; }
         </style>
         </head><body>
       `);
-      generatedSerials.forEach((s,i) => {
-        w.document.write(`
-          <div class="label">
-            <svg id="bc${i}"></svg>
-            <div>${s}</div>
-          </div>
-        `);
+      generatedSerials.forEach((s, i) => {
+        w.document.write(
+          '<div class="label">' +
+            '<svg id="bc' + i + '"></svg>' +
+            '<div style="margin-top:8px;font-size:14px;">' + s + '</div>' +
+          '</div>'
+        );
       });
       w.document.write('</body></html>');
       w.document.close();
       w.onload = () => {
-        generatedSerials.forEach((s,i) => {
-          w.JsBarcode(w.document.getElementById(`bc${i}`), s, {
-            format: 'CODE128', width:2, height:50, displayValue: false
-          });
+        generatedSerials.forEach((s, i) => {
+          w.JsBarcode(
+            w.document.getElementById('bc' + i),
+            s,
+            { format: 'CODE128', width: 4, height: 100, displayValue: false }
+          );
         });
         w.focus();
         w.print();
@@ -190,13 +190,11 @@
 
     document.getElementById('generatorForm').addEventListener('submit', function(e) {
       e.preventDefault();
-
-      // 1) Fetch inputs
       currentCategory    = document.getElementById('category').value.trim();
       currentProductName = document.getElementById('productName').value.trim();
       let modelName      = document.getElementById('modelName').value
                               .trim().toUpperCase()
-                              .replace(/[^A-Z0-9]/g,'');
+                              .replace(/[^A-Z0-9]/g, '');
       const totalLen     = parseInt(document.getElementById('length').value, 10);
       const quantity     = parseInt(document.getElementById('quantity').value, 10);
 
@@ -205,38 +203,35 @@
         return;
       }
       if (totalLen <= modelName.length) {
-        showAlert(`Total Length (${totalLen}) must be greater than prefix length (${modelName.length}).`);
+        showAlert('Total Length (' + totalLen +
+          ') must be greater than prefix length (' + modelName.length + ').');
         return;
       }
       const randLen = totalLen - modelName.length;
 
-      // 2) Generate unique serials
       const set = new Set();
       while (set.size < quantity) {
         set.add(modelName + randomString(randLen));
       }
       generatedSerials = Array.from(set);
 
-      // 3) Render results
       const res = document.getElementById('results');
-      res.innerHTML = `
-        <div class="bg-white p-6 rounded-2xl shadow-lg">
-          <h2 class="text-xl font-bold text-gray-800 mb-3">Generated Serials:</h2>
-          <ul class="space-y-2 max-h-64 overflow-y-auto border border-gray-200 p-2 rounded-lg">
-            ${generatedSerials.map(s => `<li class="font-mono">${s}</li>`).join('')}
-          </ul>
-          <div class="mt-6 flex gap-4 no-print">
-            <button id="downloadExcelBtn"
-                    class="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
-              Download Excel
-            </button>
-            <button id="printBarcodesBtn"
-                    class="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg">
-              Print Barcodes
-            </button>
-          </div>
-        </div>
-      `;
+      res.innerHTML = ''
+        + '<div class="bg-white p-6 rounded-2xl shadow-lg">'
+        +   '<h2 class="text-xl font-bold text-gray-800 mb-3">Generated Serials:</h2>'
+        +   '<ul class="space-y-2 max-h-64 overflow-y-auto border border-gray-200 p-2 rounded-lg">'
+        +     generatedSerials.map(s => '<li class="font-mono">' + s + '</li>').join('')
+        +   '</ul>'
+        +   '<div class="mt-6 flex gap-4 no-print">'
+        +     '<button id="downloadExcelBtn" class="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">'
+        +       'Download Excel'
+        +     '</button>'
+        +     '<button id="printBarcodesBtn" class="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg">'
+        +       'Print Barcodes'
+        +     '</button>'
+        +   '</div>'
+        + '</div>';
+
       document.getElementById('downloadExcelBtn').onclick = downloadExcel;
       document.getElementById('printBarcodesBtn').onclick = printBarcodes;
     });
